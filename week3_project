@@ -1,0 +1,220 @@
+import json
+import re
+import csv
+from datetime import datetime
+from pathlib import Path
+
+DATA_FILE = "contacts_data.json"
+
+
+def validate_phone(phone):
+    """Validate phone number (10–15 digits)."""
+    digits = re.sub(r"\D", "", phone)
+    if 10 <= len(digits) <= 15:
+        return True, digits
+    return False, None
+
+
+def validate_email(email):
+    """Validate email format."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+
+
+def load_contacts():
+    """Load contacts from JSON file."""
+    if Path(DATA_FILE).exists():
+        with open(DATA_FILE, "r") as file:
+            print(" Contacts loaded.")
+            return json.load(file)
+    print(" No existing file found. Starting fresh.")
+    return {}
+
+
+def save_contacts(contacts):
+    """Save contacts to JSON file."""
+    with open(DATA_FILE, "w") as file:
+        json.dump(contacts, file, indent=4)
+    print(" Contacts saved.")
+
+
+
+def add_contact(contacts):
+    print("\n--- ADD CONTACT ---")
+    name = input("Name: ").strip()
+
+    if not name:
+        print(" Name cannot be empty.")
+        return
+
+    if name in contacts:
+        print(" Contact already exists.")
+        return
+
+    phone_input = input("Phone: ").strip()
+    valid, phone = validate_phone(phone_input)
+    if not valid:
+        print(" Invalid phone number.")
+        return
+
+    email = input("Email (optional): ").strip()
+    if email and not validate_email(email):
+        print(" Invalid email.")
+        return
+
+    address = input("Address (optional): ").strip()
+    group = input("Group (Friends/Work/Family/Other): ").strip() or "Other"
+
+    contacts[name] = {
+        "phone": phone,
+        "email": email or None,
+        "address": address or None,
+        "group": group,
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat()
+    }
+
+    print(f" '{name}' added successfully.")
+
+
+def search_contact(contacts):
+    term = input("Search by name or phone: ").lower()
+    results = {}
+
+    for name, info in contacts.items():
+        if term in name.lower() or term in info["phone"]:
+            results[name] = info
+
+    display_contacts(results)
+
+
+def update_contact(contacts):
+    name = input("Enter contact name to update: ").strip()
+
+    if name not in contacts:
+        print(" Contact not found.")
+        return
+
+    phone_input = input("New phone (Enter to keep current): ").strip()
+    if phone_input:
+        valid, phone = validate_phone(phone_input)
+        if not valid:
+            print(" Invalid phone.")
+            return
+        contacts[name]["phone"] = phone
+
+    email = input("New email (Enter to keep current): ").strip()
+    if email:
+        if not validate_email(email):
+            print(" Invalid email.")
+            return
+        contacts[name]["email"] = email
+
+    contacts[name]["updated_at"] = datetime.now().isoformat()
+    print(" Contact updated.")
+
+
+def delete_contact(contacts):
+    name = input("Enter contact name to delete: ").strip()
+
+    if name not in contacts:
+        print(" Contact not found.")
+        return
+
+    confirm = input(f"Delete '{name}'? (y/n): ").lower()
+    if confirm == "y":
+        del contacts[name]
+        print(" Contact deleted.")
+
+
+def display_contacts(contacts):
+    if not contacts:
+        print(" No contacts found.")
+        return
+
+    print(f"\n--- CONTACT LIST ({len(contacts)}) ---")
+    print("=" * 50)
+
+    for name, info in contacts.items():
+        print(f" {name}")
+        print(f"    {info['phone']}")
+        if info["email"]:
+            print(f"    {info['email']}")
+        if info["address"]:
+            print(f"    {info['address']}")
+        print(f"    {info['group']}")
+        print("-" * 40)
+
+
+def export_to_csv(contacts):
+    with open("contacts_export.csv", "w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(["Name", "Phone", "Email", "Group"])
+        for name, info in contacts.items():
+            writer.writerow([name, info["phone"], info["email"], info["group"]])
+    print(" Contacts exported to CSV.")
+
+
+def show_statistics(contacts):
+    print("\n--- STATISTICS ---")
+    print(f"Total Contacts: {len(contacts)}")
+
+    groups = {}
+    for info in contacts.values():
+        groups[info["group"]] = groups.get(info["group"], 0) + 1
+
+    print("\nContacts by Group:")
+    for group, count in groups.items():
+        print(f"  {group}: {count}")
+
+
+
+def main():
+    contacts = load_contacts()
+
+    while True:
+        print("""
+==============================
+ CONTACT MANAGEMENT SYSTEM
+==============================
+1. Add Contact
+2. Search Contact
+3. Update Contact
+4. Delete Contact
+5. View All Contacts
+6. Export to CSV
+7. View Statistics
+8. Exit
+==============================
+""")
+
+        choice = input("Choose (1-8): ").strip()
+
+        if choice == "1":
+            add_contact(contacts)
+        elif choice == "2":
+            search_contact(contacts)
+        elif choice == "3":
+            update_contact(contacts)
+        elif choice == "4":
+            delete_contact(contacts)
+        elif choice == "5":
+            display_contacts(contacts)
+        elif choice == "6":
+            export_to_csv(contacts)
+        elif choice == "7":
+            show_statistics(contacts)
+        elif choice == "8":
+            save_contacts(contacts)
+            print("👋 Goodbye!")
+            break
+        else:
+            print(" Invalid choice.")
+
+        save_contacts(contacts)
+
+
+
+if __name__ == "__main__":
+    main()
